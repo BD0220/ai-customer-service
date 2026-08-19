@@ -7,10 +7,17 @@
 import sqlite3
 import os
 import json
+import logging
 from datetime import datetime
 
-# 数据库文件路径
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "customer_service.db")
+# 配置日志
+logger = logging.getLogger(__name__)
+
+# 数据库文件路径（支持环境变量覆盖，云盘环境可指向本地磁盘）
+DB_PATH = os.environ.get(
+    "CS_DB_PATH",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "customer_service.db"),
+)
 
 
 def get_connection():
@@ -72,7 +79,7 @@ def init_db():
 
     conn.commit()
     conn.close()
-    print("[数据库] 初始化完成（sessions / tickets / conversations）")
+    logger.info("数据库初始化完成（sessions / tickets / conversations）")
 
 
 # ========== 会话管理 ==========
@@ -207,7 +214,7 @@ def create_ticket_record(
     conn.commit()
     ticket_id = cursor.lastrowid
     conn.close()
-    print(f"[数据库] 工单 #{ticket_id} 已创建：{summary[:50]}")
+    logger.info(f"工单 #{ticket_id} 已创建：{summary[:50]}")
     return ticket_id
 
 

@@ -1,0 +1,20 @@
+version: "3.8"
+
+services:
+  ai-cs-agent:
+    build: .
+    container_name: ai-cs-agent
+    ports:
+      - "8000:8000"   # FastAPI 后端
+      - "7860:7860"   # Gradio 前端
+    env_file:
+      - .env
+    environment:
+      - CS_DB_PATH=/data/customer_service.db
+    volumes:
+      # 数据库持久化到宿主机，容器重启不丢数据
+      - cs-data:/data
+    restart: unless-stopped
+
+volumes:
+  cs-data:

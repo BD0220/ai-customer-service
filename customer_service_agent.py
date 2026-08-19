@@ -11,8 +11,13 @@
 import os
 import json
 import uuid
+import logging
 from openai import OpenAI
 from dotenv import load_dotenv
+
+# 配置日志
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelname)s: %(message)s")
+logger = logging.getLogger(__name__)
 
 from db import (
     create_session,
@@ -211,7 +216,7 @@ def chat(user_message: str, session_id: str = None) -> dict:
                 except json.JSONDecodeError:
                     arguments = {}
 
-                print(f"[Agent] 第{round_num+1}轮 调用工具：{tool_name}({arguments})")
+                logger.info(f"第{round_num+1}轮 调用工具：{tool_name}({arguments})")
 
                 # 执行工具
                 result_str = execute_tool(tool_name, arguments)
@@ -249,7 +254,7 @@ def chat(user_message: str, session_id: str = None) -> dict:
     except Exception as e:
         # API 异常兜底：转人工
         error_msg = f"AI 服务暂时不可用（{str(e)[:80]}）"
-        print(f"[Agent] 异常：{error_msg}")
+        logger.error(f"Agent 异常：{error_msg}")
         ticket = create_ticket(
             user_message,
             reason=error_msg,

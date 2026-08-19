@@ -7,13 +7,32 @@
 [![DeepSeek](https://img.shields.io/badge/DeepSeek-Function%20Calling-4D6BFE.svg)](https://www.deepseek.com/)
 [![RAG](https://img.shields.io/badge/RAG-TF--IDF%20Retrieval-22C55E.svg)]()
 [![Gradio](https://img.shields.io/badge/Gradio-4.44-F37425.svg)](https://www.gradio.app/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED.svg)](https://www.docker.com/)
+[![Demo](https://img.shields.io/badge/在线%20Demo-GitHub%20Pages-orange.svg)](https://bd0220.github.io/ai-customer-service/)
 
 ## 📖 项目简介
 
 本项目是一个面向企业客服团队的 **AI Agent 系统**。与传统的规则匹配客服不同，它基于大语言模型的 **Function Calling** 能力，让 AI 自主理解用户意图、决定调用哪个工具、执行多步推理，最终给出准确回答。遇到投诉、退款等复杂问题，自动创建工单转接人工。
 
 **核心能力**：LLM Agent · Function Calling · RAG 知识检索 · 多轮对话 · 自动工单
+
+## 🎮 在线体验
+
+👉 **[点击打开在线 Demo](https://bd0220.github.io/ai-customer-service/)**（无需安装，浏览器直接体验）
+
+> Demo 为纯前端模拟版本，界面和交互与完整版一致。完整版需配置 DeepSeek API Key 后本地运行。
+
+## 📸 效果预览
+
+### 客服对话页
+![客服对话](docs/screenshot-chat.png)
+
+> 用户发送消息后，Agent 自动调用工具查询订单和物流，并在回复下方展示完整的工具调用链路。
+
+### 工单管理页
+![工单管理](docs/screenshot-tickets.png)
+
+> 转人工后自动生成工单，支持状态流转（待处理 → 处理中 → 已完成）和统计概览。
 
 ## ✨ 核心功能
 
@@ -130,7 +149,11 @@ knowledge_base/
 ```
 ai-customer-service/
 ├── .env.example                # 环境变量模板
+├── .gitignore                  # Git 忽略规则
 ├── requirements.txt            # Python 依赖
+├── Dockerfile                  # Docker 镜像构建
+├── docker-compose.yml          # Docker Compose 一键启动
+├── index.html                  # GitHub Pages 在线 Demo
 ├── mock_data.py                # 模拟业务数据（用户/订单/物流/商品）
 ├── tools.py                    # Agent 工具集 + Function Schema 定义
 ├── rag_engine.py               # RAG 检索引擎（TF-IDF）
@@ -139,8 +162,10 @@ ai-customer-service/
 ├── customer_service_agent.py   # 核心 Agent（ReAct 循环）
 ├── api_server.py               # FastAPI 后端
 ├── ui.py                       # Gradio 前端
-├── Dockerfile                  # Docker 部署
 ├── preview.html                # 手机可打开的交互预览
+├── docs/                       # 文档和截图
+│   ├── screenshot-chat.png
+│   └── screenshot-tickets.png
 ├── knowledge_base/             # RAG 知识库文档
 │   ├── 退换货政策.md
 │   ├── 常见问题.md
@@ -151,11 +176,36 @@ ai-customer-service/
 
 ## 🚀 快速开始
 
-### 环境要求
+### 方式一：Docker Compose 一键启动（推荐）
+
+```bash
+git clone https://github.com/BD0220/ai-customer-service.git
+cd ai-customer-service
+
+# 配置 API Key
+cp .env.example .env
+# 编辑 .env，填入 DEEPSEEK_API_KEY
+
+# 一键启动
+docker-compose up -d
+
+# 查看日志
+docker-compose logs -f
+```
+
+启动后访问：
+- 前端界面：http://localhost:7860
+- API 文档：http://localhost:8000/docs
+
+停止服务：`docker-compose down`
+
+### 方式二：本地 Python 运行
+
+#### 环境要求
 - Python 3.10+
 - [DeepSeek API Key](https://platform.deepseek.com/)
 
-### 安装与配置
+#### 安装与配置
 
 ```bash
 git clone https://github.com/BD0220/ai-customer-service.git
@@ -167,7 +217,7 @@ cp .env.example .env
 # 编辑 .env，填入 DEEPSEEK_API_KEY
 ```
 
-### 启动
+#### 启动
 
 ```bash
 # 终端 1：后端
@@ -179,13 +229,6 @@ python ui.py
 
 - 前端：http://localhost:7860
 - API 文档：http://localhost:8000/docs
-
-### Docker
-
-```bash
-docker build -t ai-cs-agent .
-docker run -p 8000:8000 -p 7860:7860 --env-file .env ai-cs-agent
-```
 
 ## 🔌 API 示例
 
@@ -217,6 +260,31 @@ curl -X POST http://localhost:8000/chat \
 | 前端 | Gradio | ML/AI 应用快速构建，Markdown 渲染 |
 | 数据库 | SQLite | 三表：sessions/tickets/conversations |
 | 部署 | Docker | 一键容器化 |
+
+## 🧗 技术难点与解决方案
+
+### 1. Function Calling 多轮工具调用
+**难点**：用户一句模糊的话（如"我买的耳机能退吗"）需要 AI 自主拆解为多步操作：查订单 → 找到耳机 → 评估退货 → 结合政策回复。
+**方案**：实现 ReAct 循环，LLM 返回 tool_calls 后执行工具并将结果回传，最多 5 轮迭代直到 AI 给出最终文本回复。每轮的工具名、参数、结果都记录到 tool_trace 中，前端可完整展示推理链路。
+
+### 2. RAG 零依赖检索
+**难点**：项目希望保持轻量，不引入向量数据库和 Embedding 模型，但又要实现知识库的语义检索。
+**方案**：实现基于 TF-IDF + 余弦相似度的轻量检索引擎。中文采用 2-gram 分词（兼顾词组边界和实现简洁），文档按 Markdown 标题层级分块（保留章节上下文），运行时动态构建索引。对退货政策、FAQ 等短文档场景，检索准确率满足需求。
+
+### 3. 三层转人工保障
+**难点**：客服系统不能出现"AI 答不上来就僵住"的情况，必须保证用户问题始终有人处理。
+**方案**：
+- **第一层（零延迟）**：关键词拦截，投诉/赔偿/315 等紧急词直接创建紧急工单
+- **第二层（LLM 决策）**：AI 通过 escalate_to_human 工具自主判断需要转人工的场景
+- **第三层（高可用）**：API 超时、限流、JSON 解析失败等异常自动兜底转人工
+
+### 4. 多轮对话上下文管理
+**难点**：Function Calling 场景下的消息历史比普通对话更复杂——需要包含 assistant 的 tool_calls 和对应的 tool 结果消息，且要控制 token 消耗。
+**方案**：SQLite 持久化对话记录，每次请求加载最近 20 条历史；严格遵循 OpenAI 的 tool_calls → tool 消息格式，确保多轮工具调用时上下文完整。
+
+### 5. 数据库环境兼容
+**难点**：云盘/网络挂载目录可能不支持 SQLite 文件锁，导致 `disk I/O error`。
+**方案**：通过 `CS_DB_PATH` 环境变量支持自定义数据库路径，Docker Compose 中映射到持久化 Volume，本地开发默认使用项目目录。
 
 ## 🔮 后续优化方向
 
