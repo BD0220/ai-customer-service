@@ -6,13 +6,13 @@
   - RAG 知识库检索（退货政策、FAQ 等基于真实文档回答）
   - 多轮对话（session 级上下文记忆）
   - 三层转人工保障（关键词 → Agent 自主调用 → 异常兜底）
+  - LLM Provider 抽象层，支持 DeepSeek / OpenAI 无缝切换
 """
 
 import os
 import json
 import uuid
 import logging
-from openai import OpenAI
 from dotenv import load_dotenv
 
 # 配置日志
@@ -28,22 +28,13 @@ from db import (
 from ticket_manager import create_ticket
 from tools import TOOL_DEFINITIONS, TOOL_MAP, execute_tool
 from rag_engine import search_knowledge_base, format_context
+from llm_provider import get_llm_provider
 
 # 加载环境变量
 load_dotenv()
 
-# DeepSeek 配置
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
-DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
-
-# 初始化 OpenAI 客户端（DeepSeek 兼容 OpenAI SDK）
-client = OpenAI(
-    api_key=DEEPSEEK_API_KEY,
-    base_url=DEEPSEEK_BASE_URL,
-)
-
-# 模型名称
-MODEL_NAME = "deepseek-chat"
+# 通过抽象层初始化 LLM Provider（根据 LLM_PROVIDER 环境变量自动选择）
+llm = get_llm_provider()
 
 # 最大工具调用轮数（防止无限循环）
 MAX_TOOL_ROUNDS = 5
@@ -114,7 +105,7 @@ def chat(user_message: str, session_id: str = None) -> dict:
       2. RAG 检索 → 构建 System Prompt
       3. 加载历史消息
       4. ReAct 循环：
-         a. 调用 LLM
+         a. 调用 LLM（通过 Provider 抽象层）
          b. 如果 LLM 返回 tool_calls → 执行工具 → 把结果发回 LLM → 继续循环
          c. 如果 LLM 返回普通文本 → 作为最终回复
       5. 检测是否调用了 escalate_to_human → 创建工单
@@ -172,49 +163,41 @@ def chat(user_message: str, session_id: str = None) -> dict:
 
     try:
         for round_num in range(MAX_TOOL_ROUNDS):
-            # 调用 DeepSeek API
-            response = client.chat.completions.create(
-                model=MODEL_NAME,
+            # 通过 Provider 抽象层调用 LLM（无需关心底层是 DeepSeek 还是 OpenAI）
+            llm_response = llm.chat_completion(
                 messages=messages,
                 tools=TOOL_DEFINITIONS,
-                tool_choice="auto",
                 temperature=0.5,
                 max_tokens=1000,
             )
 
-            choice = response.choices[0]
-            msg = choice.message
-
             # 如果没有 tool_calls，说明 AI 给出了最终回复
-            if not msg.tool_calls:
-                final_reply = msg.content.strip()
+            if not llm_response["tool_calls"]:
+                final_reply = llm_response["content"]
                 break
 
             # 有 tool_calls → 执行工具
             # 先把 assistant 的工具调用请求加入消息历史
             messages.append({
                 "role": "assistant",
-                "content": msg.content or "",
+                "content": llm_response["content"],
                 "tool_calls": [
                     {
-                        "id": tc.id,
+                        "id": tc["id"],
                         "type": "function",
                         "function": {
-                            "name": tc.function.name,
-                            "arguments": tc.function.arguments,
+                            "name": tc["name"],
+                            "arguments": json.dumps(tc["arguments"], ensure_ascii=False),
                         },
                     }
-                    for tc in msg.tool_calls
+                    for tc in llm_response["tool_calls"]
                 ],
             })
 
             # 逐个执行工具调用
-            for tc in msg.tool_calls:
-                tool_name = tc.function.name
-                try:
-                    arguments = json.loads(tc.function.arguments)
-                except json.JSONDecodeError:
-                    arguments = {}
+            for tc in llm_response["tool_calls"]:
+                tool_name = tc["name"]
+                arguments = tc["arguments"]
 
                 logger.info(f"第{round_num+1}轮 调用工具：{tool_name}({arguments})")
 
@@ -241,7 +224,7 @@ def chat(user_message: str, session_id: str = None) -> dict:
                 # 把工具结果加入消息历史
                 messages.append({
                     "role": "tool",
-                    "tool_call_id": tc.id,
+                    "tool_call_id": tc["id"],
                     "content": result_str,
                 })
 

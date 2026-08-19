@@ -156,7 +156,8 @@ ai-customer-service/
 ├── index.html                  # GitHub Pages 在线 Demo
 ├── mock_data.py                # 模拟业务数据（用户/订单/物流/商品）
 ├── tools.py                    # Agent 工具集 + Function Schema 定义
-├── rag_engine.py               # RAG 检索引擎（TF-IDF）
+├── llm_provider.py             # LLM Provider 抽象层（DeepSeek/OpenAI 可切换）
+├── rag_engine.py               # RAG 检索引擎（抽象接口 + TF-IDF 实现）
 ├── db.py                       # SQLite 数据库（会话/工单/对话）
 ├── ticket_manager.py           # 工单管理（分级、创建）
 ├── customer_service_agent.py   # 核心 Agent（ReAct 循环）
@@ -253,7 +254,7 @@ curl -X POST http://localhost:8000/chat \
 
 | 层 | 技术 | 说明 |
 |----|------|------|
-| LLM | DeepSeek API | Function Calling，兼容 OpenAI SDK |
+| LLM | DeepSeek API / OpenAI | 通过 Provider 抽象层支持无缝切换 |
 | Agent | 自研 ReAct Loop | 多轮工具调用，最多 5 轮 |
 | RAG | TF-IDF + 余弦相似度 | 零依赖，中文 2-gram 分词 |
 | 后端 | FastAPI | 异步、自动 Swagger 文档、CORS |
