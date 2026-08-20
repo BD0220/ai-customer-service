@@ -1,33 +1,66 @@
 """
-Gradio 前端界面（升级版）
-展示 Agent 工具调用过程，支持多轮对话。
+Gradio 前端界面 v2.0
+展示 Agent 工具调用过程，支持多轮对话、工单管理、知识库浏览。
+风格与 GitHub Pages 在线 Demo 统一。
 """
 
+import os
 import gradio as gr
 from customer_service_agent import chat
 from db import get_all_tickets, update_ticket_status, get_ticket_stats
 
+# ========== 知识库内容（从 knowledge_base/ 目录读取） ==========
+KB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "knowledge_base")
 
+
+def load_kb_docs():
+    """加载知识库文档列表"""
+    docs = []
+    if os.path.isdir(KB_DIR):
+        for fname in sorted(os.listdir(KB_DIR)):
+            if fname.endswith(".md"):
+                fpath = os.path.join(KB_DIR, fname)
+                with open(fpath, "r", encoding="utf-8") as f:
+                    content = f.read()
+                title = fname.replace(".md", "")
+                # 提取第一段作为摘要
+                lines = content.strip().split("\n")
+                desc = next((l for l in lines if l.strip() and not l.startswith("#")), "")[:60]
+                docs.append((title, desc, content))
+    return docs
+
+
+KB_DOCS = load_kb_docs()
+
+
+def get_kb_titles():
+    """获取知识库文档标题列表"""
+    return [d[0] for d in KB_DOCS]
+
+
+def get_kb_content(title):
+    """根据标题获取文档内容"""
+    for t, desc, content in KB_DOCS:
+        if t == title:
+            return content
+    return "请从左侧选择文档"
+
+
+# ========== 对话处理 ==========
 def respond(message: str, history: list, session_id: str):
-    """
-    处理用户消息，支持多轮对话和工具调用展示。
-    """
+    """处理用户消息，支持多轮对话和工具调用展示。"""
     if not message or not message.strip():
         yield history, session_id, ""
         return
 
-    # 添加用户消息
     history = history + [[message, ""]]
     yield history, session_id, ""
 
-    # 调用 Agent
     result = chat(message.strip(), session_id=session_id or None)
     session_id = result["session_id"]
-
-    # 构建回复，包含工具调用过程
     reply = result["reply"]
 
-    # 如果有工具调用，追加显示调用链路
+    # 追加工具调用链路
     if result.get("tool_trace"):
         trace_text = "\n\n---\n🔧 **Agent 工具调用过程：**\n"
         for t in result["tool_trace"]:
@@ -35,7 +68,7 @@ def respond(message: str, history: list, session_id: str):
             trace_text += f"- 第{t['round']}轮：`{t['tool']}({args_str})`\n"
         reply += trace_text
 
-    # 如果转人工了，追加工单信息
+    # 追加工单信息
     if result["need_human"] and result.get("ticket_id"):
         priority_label = "🔴 紧急" if result["priority"] == "urgent" else "🟡 普通"
         reply += f"\n\n🎫 **工单号：** #{result['ticket_id']} | **级别：** {priority_label}"
@@ -44,6 +77,7 @@ def respond(message: str, history: list, session_id: str):
     yield history, session_id, ""
 
 
+# ========== 工单管理 ==========
 def refresh_tickets():
     """刷新工单列表和统计"""
     tickets = get_all_tickets()
@@ -83,14 +117,14 @@ def refresh_tickets():
 def mark_processing(ticket_id_str: str):
     if not ticket_id_str:
         rows, stats = refresh_tickets()
-        return rows, stats, "请先输入工单号"
+        return rows, stats, "⚠️ 请先输入工单号"
     try:
         tid = int(ticket_id_str)
     except ValueError:
         rows, stats = refresh_tickets()
-        return rows, stats, "工单号必须是数字"
+        return rows, stats, "⚠️ 工单号必须是数字"
     ok = update_ticket_status(tid, "processing")
-    msg = f"工单 #{tid} 已标记为处理中 🔄" if ok else f"工单 #{tid} 不存在"
+    msg = f"✅ 工单 #{tid} 已标记为处理中" if ok else f"❌ 工单 #{tid} 不存在"
     rows, stats = refresh_tickets()
     return rows, stats, msg
 
@@ -98,49 +132,208 @@ def mark_processing(ticket_id_str: str):
 def mark_done(ticket_id_str: str):
     if not ticket_id_str:
         rows, stats = refresh_tickets()
-        return rows, stats, "请先输入工单号"
+        return rows, stats, "⚠️ 请先输入工单号"
     try:
         tid = int(ticket_id_str)
     except ValueError:
         rows, stats = refresh_tickets()
-        return rows, stats, "工单号必须是数字"
+        return rows, stats, "⚠️ 工单号必须是数字"
     ok = update_ticket_status(tid, "done")
-    msg = f"工单 #{tid} 已标记为已完成 ✅" if ok else f"工单 #{tid} 不存在"
+    msg = f"✅ 工单 #{tid} 已标记为已完成" if ok else f"❌ 工单 #{tid} 不存在"
     rows, stats = refresh_tickets()
     return rows, stats, msg
 
 
+# ========== 自定义 CSS ==========
+CUSTOM_CSS = """
+/* 全局 */
+.gradio-container {
+  max-width: 1100px !important;
+  margin: 0 auto !important;
+  padding-top: 20px !important;
+}
+footer {display: none !important;}
+
+/* 标题区域 */
+.gr-header {
+  text-align: center;
+  margin-bottom: 8px;
+}
+.gr-header h1 {
+  font-size: 28px !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+  margin-bottom: 4px !important;
+}
+.gr-header p {
+  color: #64748b !important;
+  font-size: 14px !important;
+}
+
+/* 标签页 */
+.tabs {
+  border: none !important;
+}
+.tab-nav {
+  border-bottom: 2px solid #e2e8f0 !important;
+  gap: 4px !important;
+}
+button.tab-btn {
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  padding: 10px 20px !important;
+  border-bottom: 3px solid transparent !important;
+  border-radius: 0 !important;
+  color: #64748b !important;
+}
+button.tab-btn.selected {
+  color: #f97316 !important;
+  border-bottom-color: #f97316 !important;
+}
+
+/* 聊天区 */
+.gr-chatbot {
+  border-radius: 10px !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important;
+  background: #f8fafc !important;
+}
+[data-testid="chatbot"] .message.bot {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  border-top-left-radius: 4px !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04) !important;
+}
+[data-testid="chatbot"] .message.user {
+  background: #f97316 !important;
+  color: #ffffff !important;
+  border-radius: 12px !important;
+  border-top-right-radius: 4px !important;
+}
+
+/* 输入框 */
+.gr-textbox textarea, .gr-textbox input {
+  border-radius: 10px !important;
+  border: 1.5px solid #e2e8f0 !important;
+  font-size: 14px !important;
+}
+.gr-textbox textarea:focus, .gr-textbox input:focus {
+  border-color: #f97316 !important;
+  box-shadow: 0 0 0 3px rgba(249,115,22,0.1) !important;
+}
+
+/* 按钮 */
+.gr-button-primary {
+  background: #f97316 !important;
+  border: none !important;
+  border-radius: 10px !important;
+  font-weight: 600 !important;
+  padding: 10px 20px !important;
+}
+.gr-button-primary:hover {
+  background: #ea580c !important;
+}
+.gr-button-secondary {
+  border-radius: 10px !important;
+  border: 1px solid #e2e8f0 !important;
+  font-weight: 500 !important;
+}
+
+/* 表格 */
+.gr-dataframe {
+  border-radius: 10px !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important;
+  overflow: hidden;
+}
+.gr-dataframe th {
+  background: #f8fafc !important;
+  font-weight: 600 !important;
+  color: #475569 !important;
+  font-size: 13px !important;
+}
+
+/* 统计卡片 */
+.stats-row {
+  display: flex !important;
+  gap: 16px !important;
+  margin-bottom: 16px !important;
+}
+.stat-card {
+  flex: 1 !important;
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+  padding: 18px 20px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important;
+}
+.stat-card .label {
+  font-size: 13px !important;
+  color: #64748b !important;
+}
+.stat-card .value {
+  font-size: 28px !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+/* 知识库 */
+.kb-viewer textarea {
+  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif !important;
+  font-size: 14px !important;
+  line-height: 1.8 !important;
+}
+
+/* Examples */
+.gr-examples {
+  border-radius: 10px !important;
+}
+.gr-examples button {
+  border-radius: 20px !important;
+  font-size: 13px !important;
+}
+"""
+
 # ========== 构建 Gradio 界面 ==========
 
 with gr.Blocks(
-    title="AI 智能客服工单系统 v2.0",
-    theme=gr.themes.Soft(),
-    css="footer {display: none !important;}",
+    title="AI 智能客服 Agent 系统 v2.0",
+    theme=gr.themes.Soft(
+        primary_hue="orange",
+        neutral_hue="slate",
+        font=[gr.themes.GoogleFont("Noto Sans SC"), "sans-serif"],
+    ),
+    css=CUSTOM_CSS,
 ) as demo:
 
-    gr.Markdown("# 🤖 AI 智能客服工单系统")
-    gr.Markdown("LLM Agent · Function Calling · RAG · 多轮对话 | 自动解决率目标 70%+")
+    gr.Markdown(
+        "# 🤖 AI 智能客服 Agent 系统\n"
+        "LLM Agent · Function Calling · RAG · 多轮对话 | 自动解决率目标 70%+",
+        elem_classes=["gr-header"],
+    )
 
-    # 隐藏的 session 状态
     session_state = gr.State("")
 
     with gr.Tabs():
-        # ---------- 客服对话页 ----------
+        # ---------- 客服对话 ----------
         with gr.Tab("💬 客服对话"):
             chatbot = gr.Chatbot(
-                label="小助手",
-                height=500,
+                label="智能客服助手",
+                height=550,
                 bubble_full_width=False,
                 avatar_images=(None, "🤖"),
                 render_markdown=True,
+                placeholder="你好！我是智能客服小助手，可以帮你查订单、查物流、咨询退货政策、了解商品信息。",
             )
             with gr.Row():
                 msg_input = gr.Textbox(
                     placeholder="试试问：我的订单到哪了？退货政策是什么？耳机有什么颜色？",
                     show_label=False,
                     scale=8,
+                    max_lines=3,
                 )
-                send_btn = gr.Button("发送 🚀", variant="primary", scale=1)
+                send_btn = gr.Button("发送 🚀", variant="primary", scale=1, min_width=100)
 
             with gr.Row():
                 reset_btn = gr.Button("🔄 新对话", size="sm")
@@ -158,7 +351,6 @@ with gr.Blocks(
                 label="💡 试试这些问题（多轮对话也可以）",
             )
 
-            # 事件绑定
             send_btn.click(
                 respond,
                 inputs=[msg_input, chatbot, session_state],
@@ -169,14 +361,13 @@ with gr.Blocks(
                 inputs=[msg_input, chatbot, session_state],
                 outputs=[chatbot, session_state, msg_input],
             )
+            reset_btn.click(
+                lambda: ([], "", ""),
+                outputs=[chatbot, session_state, msg_input],
+            )
 
-            def reset_chat():
-                return [], "", ""
-
-            reset_btn.click(reset_chat, outputs=[chatbot, session_state, msg_input])
-
-        # ---------- 工单管理页 ----------
-        with gr.Tab("📋 工单管理"):
+        # ---------- 工单管理 ----------
+        with gr.Tab("🎫 工单管理"):
             stats_md = gr.Markdown("")
             ticket_table = gr.Dataframe(
                 headers=["工单号", "问题摘要", "紧急程度", "状态", "会话ID", "创建时间"],
@@ -184,8 +375,8 @@ with gr.Blocks(
                 value=lambda: refresh_tickets()[0],
                 interactive=False,
                 wrap=True,
+                row_count=10,
             )
-
             with gr.Row():
                 ticket_id_input = gr.Textbox(
                     label="输入工单号",
@@ -195,15 +386,12 @@ with gr.Blocks(
                 processing_btn = gr.Button("标记为处理中 🔄", variant="secondary", scale=1)
                 done_btn = gr.Button("标记为已完成 ✅", variant="primary", scale=1)
                 refresh_btn = gr.Button("刷新列表 🔄", scale=1)
-
             status_msg = gr.Markdown("")
 
-            # 初始化统计
             demo.load(
                 lambda: refresh_tickets(),
                 outputs=[ticket_table, stats_md],
             )
-
             refresh_btn.click(
                 lambda: refresh_tickets(),
                 outputs=[ticket_table, stats_md],
@@ -217,6 +405,33 @@ with gr.Blocks(
                 mark_done,
                 inputs=ticket_id_input,
                 outputs=[ticket_table, stats_md, status_msg],
+            )
+
+        # ---------- 知识库 ----------
+        with gr.Tab("📚 知识库"):
+            gr.Markdown(
+                "📖 RAG 知识库文档 — Agent 通过 TF-IDF 检索以下文档内容，"
+                "自动将相关段落注入 System Prompt。"
+            )
+            with gr.Row():
+                kb_selector = gr.Dropdown(
+                    choices=get_kb_titles(),
+                    value=get_kb_titles()[0] if KB_DOCS else None,
+                    label="选择文档",
+                    scale=1,
+                )
+            kb_content = gr.Textbox(
+                value=lambda: get_kb_content(get_kb_titles()[0]) if KB_DOCS else "",
+                label="文档内容",
+                lines=25,
+                max_lines=30,
+                interactive=False,
+                elem_classes=["kb-viewer"],
+            )
+            kb_selector.change(
+                get_kb_content,
+                inputs=kb_selector,
+                outputs=kb_content,
             )
 
 
