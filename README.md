@@ -8,7 +8,6 @@
 [![RAG](https://img.shields.io/badge/RAG-TF--IDF%20Retrieval-22C55E.svg)]()
 [![Gradio](https://img.shields.io/badge/Gradio-4.44-F37425.svg)](https://www.gradio.app/)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED.svg)](https://www.docker.com/)
-[![Demo](https://img.shields.io/badge/在线%20Demo-GitHub%20Pages-orange.svg)](https://bd0220.github.io/ai-customer-service/)
 
 ## 📖 项目简介
 
@@ -16,11 +15,6 @@
 
 **核心能力**：LLM Agent · Function Calling · RAG 知识检索 · 多轮对话 · 自动工单
 
-## 🎮 在线体验
-
-👉 **[点击打开在线 Demo](https://bd0220.github.io/ai-customer-service/)**（无需安装，浏览器直接体验）
-
-> Demo 为纯前端模拟版本，界面和交互与完整版一致。完整版需配置 DeepSeek API Key 后本地运行。
 
 ## 📸 效果预览
 
@@ -153,27 +147,6 @@ ai-customer-service/
 ├── requirements.txt            # Python 依赖
 ├── Dockerfile                  # Docker 镜像构建
 ├── docker-compose.yml          # Docker Compose 一键启动
-├── index.html                  # GitHub Pages 在线 Demo
-├── mock_data.py                # 模拟业务数据（用户/订单/物流/商品）
-├── tools.py                    # Agent 工具集 + Function Schema 定义
-├── llm_provider.py             # LLM Provider 抽象层（DeepSeek/OpenAI 可切换）
-├── rag_engine.py               # RAG 检索引擎（抽象接口 + TF-IDF 实现）
-├── db.py                       # SQLite 数据库（会话/工单/对话）
-├── ticket_manager.py           # 工单管理（分级、创建）
-├── customer_service_agent.py   # 核心 Agent（ReAct 循环）
-├── api_server.py               # FastAPI 后端
-├── ui.py                       # Gradio 前端
-├── preview.html                # 手机可打开的交互预览
-├── docs/                       # 文档和截图
-│   ├── screenshot-chat.png
-│   └── screenshot-tickets.png
-├── knowledge_base/             # RAG 知识库文档
-│   ├── 退换货政策.md
-│   ├── 常见问题.md
-│   └── 产品与售后.md
-├── RESUME.md                   # 简历项目描述
-└── README.md
-```
 
 ## 🚀 快速开始
 
