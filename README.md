@@ -9,6 +9,7 @@
 [![Gradio](https://img.shields.io/badge/Gradio-4.44-F37425.svg)](https://www.gradio.app/)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED.svg)](https://www.docker.com/)
 
+
 ## 📖 项目简介
 
 本项目是一个面向企业客服团队的 **AI Agent 系统**。与传统的规则匹配客服不同，它基于大语言模型的 **Function Calling** 能力，让 AI 自主理解用户意图、决定调用哪个工具、执行多步推理，最终给出准确回答。遇到投诉、退款等复杂问题，自动创建工单转接人工。
@@ -22,6 +23,11 @@
 ![客服对话](docs/screenshot-chat.png)
 
 > 用户发送消息后，Agent 自动调用工具查询订单和物流，并在回复下方展示完整的工具调用链路。
+
+### 工单管理页
+![工单管理](docs/screenshot-tickets.png)
+
+> 转人工后自动生成工单，支持状态流转（待处理 → 处理中 → 已完成）和统计概览。
 
 ## ✨ 核心功能
 
@@ -142,6 +148,27 @@ ai-customer-service/
 ├── requirements.txt            # Python 依赖
 ├── Dockerfile                  # Docker 镜像构建
 ├── docker-compose.yml          # Docker Compose 一键启动
+├── index.html                  # GitHub Pages 在线 Demo
+├── mock_data.py                # 模拟业务数据（用户/订单/物流/商品）
+├── tools.py                    # Agent 工具集 + Function Schema 定义
+├── llm_provider.py             # LLM Provider 抽象层（DeepSeek/OpenAI 可切换）
+├── rag_engine.py               # RAG 检索引擎（抽象接口 + TF-IDF 实现）
+├── db.py                       # SQLite 数据库（会话/工单/对话）
+├── ticket_manager.py           # 工单管理（分级、创建）
+├── customer_service_agent.py   # 核心 Agent（ReAct 循环）
+├── api_server.py               # FastAPI 后端
+├── ui.py                       # Gradio 前端
+├── preview.html                # 手机可打开的交互预览
+├── docs/                       # 文档和截图
+│   ├── screenshot-chat.png
+│   └── screenshot-tickets.png
+├── knowledge_base/             # RAG 知识库文档
+│   ├── 退换货政策.md
+│   ├── 常见问题.md
+│   └── 产品与售后.md
+├── RESUME.md                   # 简历项目描述
+└── README.md
+```
 
 ## 🚀 快速开始
 

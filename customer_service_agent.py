@@ -140,7 +140,7 @@ def chat(user_message: str, session_id: str = None) -> dict:
             "ticket_id": ticket["ticket_id"],
             "priority": ticket["priority"],
             "session_id": session_id,
-            "tool_trace": [{"tool": "keyword_gate", "result": "urgent_keyword_matched"}],
+            "tool_trace": [{"round": 0, "tool": "keyword_gate", "arguments": {}, "result": "urgent_keyword_matched"}],
         }
 
     # ---------- 3. 构建消息列表 ----------

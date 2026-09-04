@@ -1,6 +1,5 @@
 """
 Gradio 前端界面 v2.1 — 侧边栏布局
-与 GitHub Pages 在线 Demo (index.html) 风格一致：
 左侧深色侧边栏导航 + 右侧内容区，4 个模块：对话/工单/知识库/统计。
 """
 
@@ -55,8 +54,8 @@ def respond(message, history, session_id):
     if result.get("tool_trace"):
         trace_text = "\n\n---\n🔧 **Agent 工具调用过程：**\n"
         for t in result["tool_trace"]:
-            args_str = ", ".join(f"{k}={v}" for k, v in t["arguments"].items())
-            trace_text += f"- 第{t['round']}轮：`{t['tool']}({args_str})`\n"
+            args_str = ", ".join(f"{k}={v}" for k, v in t.get("arguments", {}).items())
+            trace_text += f"- 第{t.get('round', '-')}轮：`{t['tool']}({args_str})`\n"
         reply += trace_text
 
     if result["need_human"] and result.get("ticket_id"):
