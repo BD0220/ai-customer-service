@@ -1,0 +1,7 @@
+fastapi>=0.112.0,<0.115.0
+uvicorn>=0.30.0
+# gradio==4.44.0 与 Python 3.13 不兼容（pydub 需要 audioop、huggingface_hub 的 HfFolder 已移除），
+# 升级到 6.26.0；ui.py 已改为 type="messages" 格式，4.44+ 和 6.x 均兼容
+gradio==6.26.0
+openai>=1.51.0
+python-dotenv>=1.0.0
