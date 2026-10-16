@@ -24,6 +24,7 @@ from db import (
     touch_session,
     save_conversation,
     get_conversation_history,
+    get_session,
 )
 from ticket_manager import create_ticket
 from tools import TOOL_DEFINITIONS, TOOL_MAP, execute_tool
@@ -124,6 +125,25 @@ def chat(user_message: str, session_id: str = None) -> dict:
         session_id = f"sess_{uuid.uuid4().hex[:12]}"
     create_session(session_id)
     touch_session(session_id)
+
+    # ---------- 1.5 人工接管检查（Chatwoot 式接管闭环的关键） ----------
+    # 会话被人工接管后（mode=human，建工单时自动切换），Agent 直接闭嘴：
+    # 消息照常落库（坐席工作台能看到），但不查知识库、不调 LLM、不建工单。
+    # 这样人工回复期间用户的追问不会被 AI 抢答，也不会白烧 token。
+    # 坐席点「交还 AI」把 mode 切回 ai 后，本分支自然失效。
+    session_row = get_session(session_id)
+    if session_row and session_row.get("mode") == "human":
+        save_conversation(session_id, "user", user_message)
+        logger.info(f"会话 {session_id} 处于人工接管中，Agent 跳过应答")
+        return {
+            "reply": "",
+            "need_human": True,
+            "ticket_id": None,
+            "priority": None,
+            "session_id": session_id,
+            "tool_trace": [],
+            "human_handling": True,
+        }
 
     # ---------- 2. 关键词快速兜底（紧急情况，带语义二次确认） ----------
     urgent_keywords = ["投诉", "赔偿", "律师", "315", "12315", "举报", "起诉"]

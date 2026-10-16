@@ -38,15 +38,26 @@ def init_db():
     cursor = conn.cursor()
 
     # 会话表：每个用户一个活跃会话
+    # mode：本会话当前由谁应答 —— ai（Agent 应答）/ human（人工接管，AI 闭嘴）/ closed（已结束）
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS sessions (
             session_id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL DEFAULT 'U10086',
             status TEXT NOT NULL DEFAULT 'active',
+            mode TEXT NOT NULL DEFAULT 'ai',
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         )
     """)
+
+    # 旧库迁移：建表时没有 mode 列的话补上（ALTER 不会破坏已有数据）
+    cursor.execute("PRAGMA table_info(sessions)")
+    existing_cols = {row[1] for row in cursor.fetchall()}
+    if "mode" not in existing_cols:
+        cursor.execute(
+            "ALTER TABLE sessions ADD COLUMN mode TEXT NOT NULL DEFAULT 'ai'"
+        )
+        logger.info("sessions 表迁移完成：新增 mode 列（默认 'ai'）")
 
     # 工单表：增加 session_id 关联
     cursor.execute("""
@@ -121,6 +132,88 @@ def touch_session(session_id: str):
     conn.close()
 
 
+VALID_SESSION_MODES = ("ai", "human", "closed")
+
+
+def set_session_mode(session_id: str, mode: str) -> bool:
+    """切换会话的应答方。
+
+    - ai:    Agent 应答（默认）
+    - human: 人工接管，Agent 入口直接短路，不再消耗 LLM 调用
+    - closed: 会话结束
+
+    转人工的三条路径（关键词兜底 / Agent 调工具 / 超轮与异常）都汇聚在
+    ticket_manager.create_ticket()，由它统一调本函数置为 human ——
+    "建工单 = 自动接管" 的语义只实现这一处。
+    """
+    if mode not in VALID_SESSION_MODES:
+        logger.warning(f"无效的会话模式：{mode}")
+        return False
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute(
+        "UPDATE sessions SET mode = ?, updated_at = ? WHERE session_id = ?",
+        (mode, now, session_id),
+    )
+    conn.commit()
+    affected = cursor.rowcount
+    conn.close()
+    if affected:
+        logger.info(f"会话 {session_id} 模式 → {mode}")
+    return affected > 0
+
+
+def list_open_sessions(limit: int = 50) -> list[dict]:
+    """坐席工作台用的会话列表：全部未关闭会话，带最后一条消息和未结工单数。"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT s.session_id, s.user_id, s.status, s.mode, s.created_at, s.updated_at,
+               (SELECT content FROM conversations c
+                 WHERE c.session_id = s.session_id
+                 ORDER BY c.id DESC LIMIT 1) AS last_message,
+               (SELECT COUNT(*) FROM tickets t
+                 WHERE t.session_id = s.session_id AND t.status != 'done') AS open_tickets,
+               (SELECT MAX(t.id) FROM tickets t
+                 WHERE t.session_id = s.session_id AND t.status != 'done') AS open_ticket_id
+        FROM sessions s
+        WHERE s.mode IN ('ai', 'human')
+        ORDER BY s.updated_at DESC
+        LIMIT ?
+        """,
+        (limit,),
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_session_messages(session_id: str, limit: int = 100) -> list[dict]:
+    """原始消息流（含人工坐席的回复），给工作台 / 用户侧轮询渲染用。
+
+    注意与 get_conversation_history 的区别：那个是喂给 LLM 的上下文
+    （会把 agent 角色映射成 assistant），这里保留原样。
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """SELECT role, content, created_at
+           FROM conversations
+           WHERE session_id = ?
+           ORDER BY id DESC LIMIT ?""",
+        (session_id, limit),
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    return [
+        {"role": r["role"], "content": r["content"], "created_at": r["created_at"]}
+        for r in reversed(rows)
+    ]
+
+
 # ========== 对话记录 ==========
 
 def save_conversation(
@@ -183,12 +276,20 @@ def get_conversation_history(session_id: str, limit: int = 20) -> list[dict]:
     rows = cursor.fetchall()
     conn.close()
 
-    # 倒序取出后反转为正序
+    # 倒序取出后反转为正序。
+    # 人工坐席的回复（role="agent"）也属于"客服说过的话"，映射回 assistant
+    # 并加前缀标注——否则 OpenAI 协议不认识 "agent" 角色，会直接报错；
+    # 加前缀是为了让 AI 交还后知道这段话是人工说的，衔接上下文。
     messages = []
     for row in reversed(rows):
+        role = row["role"]
+        content = row["content"]
+        if role == "agent":
+            role = "assistant"
+            content = f"（人工客服的回复）：{content}"
         messages.append({
-            "role": row["role"],
-            "content": row["content"],
+            "role": role,
+            "content": content,
         })
     return messages
 

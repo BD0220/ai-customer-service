@@ -3,7 +3,7 @@
 支持会话关联，与 Agent 的 escalate_to_human 工具配合。
 """
 
-from db import create_ticket_record
+from db import create_ticket_record, set_session_mode
 
 # 紧急关键词
 URGENT_KEYWORDS = ["投诉", "赔偿", "律师", "315", "12315", "举报", "起诉", "法院"]
@@ -61,6 +61,13 @@ def create_ticket(
         session_id=session_id,
         user_id=user_id,
     )
+
+    # 建工单 = 自动接管：转人工的三条路径（关键词兜底 / Agent 调工具 /
+    # 超轮与异常兜底）都汇聚到本函数，在这里把会话切到 human 模式，
+    # 之后 Agent 的 chat() 入口会直接短路，不再消耗 LLM 调用。
+    # 人工处理完由坐席在工作台点「交还 AI」切回 ai 模式。
+    if session_id:
+        set_session_mode(session_id, "human")
 
     # 返回提示消息
     if priority == "urgent":
