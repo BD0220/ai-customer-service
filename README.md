@@ -38,6 +38,7 @@
 | 📚 **RAG 知识检索** | 政策文档分块索引 + TF-IDF 相似度检索，动态注入 Prompt |
 | 💬 **多轮对话** | Session 管理 + 历史消息持久化，支持上下文连续交互 |
 | 🎫 **智能工单** | 三层转人工机制 + 紧急程度自动分级 + 状态流转 |
+| 🧑‍💼 **人工接管工作台** | 转人工即自动接管（AI 静默），坐席系统内直接回复、交还 AI 上下文无缝衔接 |
 | 📊 **工具链路追踪** | 每次对话记录完整的 tool_call 链路，便于调试和审计 |
 | 🐳 **Docker 部署** | 一键容器化部署 |
 
@@ -46,18 +47,21 @@
 ```
 ┌──────────────────────────────────────────────────────┐
 │                    用户浏览器                          │
-│              Gradio UI (Port 7860)                   │
+│         Gradio UI（挂载于 Port 8000 根路径）           │
 ├──────────────────────────────────────────────────────┤
 │   💬 客服对话页              │   📋 工单管理页        │
 │   - 多轮聊天                 │   - 工单列表           │
 │   - 工具调用过程展示         │   - 状态流转           │
 │   - 快捷问题                 │   - 统计面板           │
-└──────────────┬───────────────────────┬───────────────┘
-               │                       │
-               ▼                       ▼
+│   - 人工接管提示             │                        │
+└──────────────┬───────────────────────┴───────────────┘
+               │  单端口：界面与 API 同源
+               ▼
 ┌──────────────────────────────────────────────────────┐
-│           FastAPI 后端 (Port 8000)                   │
-│   POST /chat  ·  GET /tickets  ·  PUT /tickets/:id   │
+│      FastAPI 服务（Port 8000，单进程）                │
+│  POST /chat · GET /tickets · PUT /tickets/:id        │
+│  GET /sessions · POST /sessions/:id/agent-reply      │
+│  PUT /sessions/:id/mode · Gradio 挂载于 /            │
 └──────────────┬───────────────────────────────────────┘
                │
                ▼
@@ -146,27 +150,30 @@ ai-customer-service/
 ├── .env.example                # 环境变量模板
 ├── .gitignore                  # Git 忽略规则
 ├── requirements.txt            # Python 依赖
+├── start.bat                   # Windows 一键启动（单端口）
 ├── Dockerfile                  # Docker 镜像构建
 ├── docker-compose.yml          # Docker Compose 一键启动
-├── index.html                  # GitHub Pages 在线 Demo
 ├── mock_data.py                # 模拟业务数据（用户/订单/物流/商品）
 ├── tools.py                    # Agent 工具集 + Function Schema 定义
 ├── llm_provider.py             # LLM Provider 抽象层（DeepSeek/OpenAI 可切换）
 ├── rag_engine.py               # RAG 检索引擎（抽象接口 + TF-IDF 实现）
 ├── db.py                       # SQLite 数据库（会话/工单/对话）
-├── ticket_manager.py           # 工单管理（分级、创建）
-├── customer_service_agent.py   # 核心 Agent（ReAct 循环）
-├── api_server.py               # FastAPI 后端
-├── ui.py                       # Gradio 前端
-├── preview.html                # 手机可打开的交互预览
+├── ticket_manager.py           # 工单管理（分级、创建、自动接管）
+├── customer_service_agent.py   # 核心 Agent（ReAct 循环 + 接管短路）
+├── api_server.py               # FastAPI 服务（API + Gradio 挂载，单端口）
+├── ui.py                       # Gradio 界面（对话/工单/工作台/知识库/统计）
+├── data/                       # 运行数据（SQLite，不入库）
 ├── docs/                       # 文档和截图
 │   ├── screenshot-chat.png
 │   └── screenshot-tickets.png
+├── eval/                       # 评测集与跑批脚本
+│   ├── cases.py                # 用例定义（功能/知识/转人工/闲聊/边界）
+│   ├── run_eval.py             # 跑批 + 指标汇总
+│   └── results/                # 评测报告
 ├── knowledge_base/             # RAG 知识库文档
 │   ├── 退换货政策.md
 │   ├── 常见问题.md
 │   └── 产品与售后.md
-├── RESUME.md                   # 简历项目描述
 └── README.md
 ```
 
@@ -189,8 +196,8 @@ docker-compose up -d
 docker-compose logs -f
 ```
 
-启动后访问：
-- 前端界面：http://localhost:7860
+启动后访问（单端口）：
+- 客服界面：http://localhost:8000/
 - API 文档：http://localhost:8000/docs
 
 停止服务：`docker-compose down`
@@ -216,14 +223,15 @@ cp .env.example .env
 #### 启动
 
 ```bash
-# 终端 1：后端
-uvicorn api_server:app --host 0.0.0.0 --port 8000 --reload
+# 方式 A：Windows 双击 start.bat（自动建 venv、装依赖、开浏览器）
 
-# 终端 2：前端
-python ui.py
+# 方式 B：命令行单进程启动
+python api_server.py
+# 或带热重载开发：
+uvicorn api_server:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-- 前端：http://localhost:7860
+- 客服界面：http://localhost:8000/
 - API 文档：http://localhost:8000/docs
 
 ## 🔌 API 示例

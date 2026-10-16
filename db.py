@@ -13,10 +13,12 @@ from datetime import datetime
 # 配置日志
 logger = logging.getLogger(__name__)
 
-# 数据库文件路径（支持环境变量覆盖，云盘环境可指向本地磁盘）
+# 数据库文件路径：默认 data/ 目录（运行数据与源码分离），CS_DB_PATH 可覆盖
+_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+os.makedirs(_DATA_DIR, exist_ok=True)
 DB_PATH = os.environ.get(
     "CS_DB_PATH",
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "customer_service.db"),
+    os.path.join(_DATA_DIR, "customer_service.db"),
 )
 
 

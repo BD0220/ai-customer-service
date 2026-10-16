@@ -5,8 +5,7 @@ services:
     build: .
     container_name: ai-cs-agent
     ports:
-      - "8000:8000"   # FastAPI 后端
-      - "7860:7860"   # Gradio 前端
+      - "8000:8000"   # API + 界面（单端口）
     env_file:
       - .env
     environment:

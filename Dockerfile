@@ -13,8 +13,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 复制项目所有文件
 COPY . .
 
-# 暴露端口：8000=FastAPI, 7860=Gradio
-EXPOSE 8000 7860
+# 暴露端口：8000 = FastAPI API + Gradio 界面（单端口）
+EXPOSE 8000
 
-# 同时启动 FastAPI 和 Gradio
-CMD ["sh", "-c", "uvicorn api_server:app --host 0.0.0.0 --port 8000 & python ui.py"]
+# 单进程单端口：Gradio 已通过 mount_gradio_app 挂载到 FastAPI
+CMD ["uvicorn", "api_server:app", "--host", "0.0.0.0", "--port", "8000"]

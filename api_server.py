@@ -178,14 +178,29 @@ def switch_mode(session_id: str, req: SessionModeRequest):
     return {"status": "success", "session_id": session_id, "mode": req.mode}
 
 
-@app.get("/", summary="健康检查")
-def root():
+@app.get("/health", summary="健康检查")
+def health():
     return {
         "service": "AI 智能客服工单系统",
-        "version": "2.0.0",
+        "version": "3.0.0",
         "status": "ok",
-        "features": ["Function Calling", "RAG", "Multi-turn Dialogue", "Auto Ticket"],
+        "features": ["Function Calling", "RAG", "Multi-turn Dialogue", "Auto Ticket", "Human Takeover"],
     }
+
+
+# ========== 单端口：Gradio 界面挂载到根路径 ==========
+# 为什么之前要两个服务：Gradio 自带一个独立的 HTTP 服务器（7860），
+# 和 FastAPI（8000）是两个 ASGI 应用，只能各起一个进程。
+# 现在 mount_gradio_app 把 Gradio 挂到同一个 FastAPI 应用上，
+# 所有路由已在上文注册完毕（路由优先于挂载，/docs /stats 等不会被遮住），
+# 一个进程一个端口搞定界面 + API。
+try:
+    import gradio as gr
+    from ui import demo, GRADIO_THEME, CSS
+
+    app = gr.mount_gradio_app(app, demo, path="/", theme=GRADIO_THEME, css=CSS)
+except Exception as e:  # Gradio 缺失或界面构建失败时退化为纯 API 服务
+    print(f"[启动] Gradio 界面挂载失败，仅提供 API: {e}")
 
 
 # 启动：python api_server.py

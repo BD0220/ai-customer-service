@@ -586,6 +586,10 @@ def build_stats_view(stats=None):
 
 # ========== 构建界面 ==========
 
+# Gradio 6 起 theme/css 不再从 Blocks() 构造器传入，由挂载方（api_server.py
+# 的 mount_gradio_app）使用这两个常量，保持单一来源。
+GRADIO_THEME = gr.themes.Soft(primary_hue="orange", neutral_hue="slate")
+
 with gr.Blocks(
     title="AI 智能客服 Agent 系统 v2.0",
 ) as demo:
@@ -896,10 +900,6 @@ with gr.Blocks(
 
 
 if __name__ == "__main__":
-    # Gradio 6.0 起 theme/css 从 Blocks() 构造器移到了 launch()
-    demo.launch(
-        server_name="0.0.0.0",
-        server_port=7860,
-        theme=gr.themes.Soft(primary_hue="orange", neutral_hue="slate"),
-        css=CSS,
-    )
+    # 独立启动已弃用：现在由 api_server.py 以单端口模式挂载（mount_gradio_app）。
+    # 保留主题常量供挂载方使用，直接运行本文件仅打印提示。
+    print("请运行: python api_server.py  （界面将挂在 http://127.0.0.1:8000/）")
