@@ -161,7 +161,13 @@ ai-customer-service/
 ├── ticket_manager.py           # 工单管理（分级、创建、自动接管）
 ├── customer_service_agent.py   # 核心 Agent（ReAct 循环 + 接管短路）
 ├── api_server.py               # FastAPI 服务（API + Gradio 挂载，单端口）
-├── ui.py                       # Gradio 界面（对话/工单/工作台/知识库/统计）
+├── ui/                         # Gradio 界面包（样式/回调/组装分离）
+│   ├── style.py                #   CSS 与主题（单一来源）
+│   ├── handlers_chat.py        #   对话页：应答、接管提示、轮询
+│   ├── handlers_agent.py       #   人工坐席工作台回调
+│   ├── handlers_tickets.py     #   工单管理回调
+│   ├── build.py                #   布局组装与事件绑定
+│   └── __init__.py             #   暴露 demo / CSS / GRADIO_THEME
 ├── data/                       # 运行数据（SQLite，不入库）
 ├── docs/                       # 文档和截图
 │   ├── screenshot-chat.png
