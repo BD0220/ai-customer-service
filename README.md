@@ -103,8 +103,9 @@ ai-customer-service/
        │
        ▼
 ┌────────────────────┐
-│  📦 mock_data.py   │
-│  用户/订单/物流/商品│
+│ 📦 backend/        │
+│   mock_data.py     │
+│   用户/订单/物流    │
 │  (生产环境替换为    │
 │   真实业务 API)     │
 └────────────────────┘
@@ -164,26 +165,30 @@ ai-customer-service/
 ├── .env.example                # 环境变量模板
 ├── .gitignore                  # Git 忽略规则
 ├── requirements.txt            # Python 依赖
-├── start.bat                   # Windows 一键启动（单端口）
+├── start.bat                   # Windows 一键启动（自动建 venv，单端口）
 ├── Dockerfile                  # Docker 镜像构建
 ├── docker-compose.yml          # Docker Compose 一键启动
-├── mock_data.py                # 模拟业务数据（用户/订单/物流/商品）
-├── tools.py                    # Agent 工具集 + Function Schema 定义
-├── llm_provider.py             # LLM Provider 抽象层（DeepSeek/OpenAI 可切换）
-├── rag_engine.py               # RAG 检索引擎（抽象接口 + TF-IDF 实现）
-├── db.py                       # SQLite 数据库（会话/工单/对话）
-├── ticket_manager.py           # 工单管理（分级、创建、自动接管）
-├── customer_service_agent.py   # 核心 Agent（ReAct 循环 + 接管短路）
-├── api_server.py               # FastAPI 服务（API + Gradio 挂载，单端口）
-├── ui/                         # Gradio 界面包（样式/回调/组装分离）
-│   ├── style.py                #   CSS 与主题（单一来源）
-│   ├── handlers_chat.py        #   对话页：应答、接管提示、轮询
-│   ├── handlers_agent.py       #   人工坐席工作台回调
-│   ├── handlers_tickets.py     #   工单管理回调
-│   ├── build.py                #   布局组装与事件绑定
-│   └── __init__.py             #   暴露 demo / CSS / GRADIO_THEME
+├── backend/                    # 业务代码（PYTHONPATH 之一）
+│   ├── api_server.py           # FastAPI 服务（API + Gradio 挂载，单端口）
+│   ├── customer_service_agent.py # 核心 Agent（ReAct 循环 + 接管短路）
+│   ├── tools.py                # Agent 工具集 + Function Schema 定义
+│   ├── llm_provider.py         # LLM Provider 抽象层（DeepSeek/OpenAI 可切换）
+│   ├── rag_engine.py           # RAG 检索引擎（抽象接口 + TF-IDF 实现）
+│   ├── db.py                   # SQLite 数据库（会话/工单/对话）
+│   ├── ticket_manager.py       # 工单管理（分级、创建、自动接管）
+│   ├── mock_data.py            # 模拟业务数据（用户/订单/物流/商品）
+│   └── data/                   # 运行时数据库与日志（已 gitignore）
+├── frontend/
+│   └── ui/                     # Gradio 界面包（样式/回调/组装分离）
+│       ├── style.py            #   CSS 与主题（单一来源）
+│       ├── handlers_chat.py    #   对话页：应答、接管提示、轮询
+│       ├── handlers_agent.py   #   人工坐席工作台回调
+│       ├── handlers_tickets.py #   工单管理回调
+│       ├── build.py            #   布局组装与事件绑定
+│       └── __init__.py         #   暴露 demo / CSS / GRADIO_THEME
 ├── data/                       # 运行数据（SQLite，不入库）
 ├── docs/                       # 文档和截图
+│   ├── 升级清单.md
 │   ├── screenshot-chat.png
 │   └── screenshot-tickets.png
 ├── eval/                       # 评测集与跑批脚本
@@ -246,9 +251,9 @@ cp .env.example .env
 # 方式 A：Windows 双击 start.bat（自动建 venv、装依赖、开浏览器）
 
 # 方式 B：命令行单进程启动
-python api_server.py
+start.bat   # 或：set PYTHONPATH=backend;frontend && python backend\api_server.py
 # 或带热重载开发：
-uvicorn api_server:app --host 0.0.0.0 --port 8000 --reload
+# Linux/macOS：PYTHONPATH=backend:frontend python backend/api_server.py
 ```
 
 - 客服界面：http://localhost:8000/
