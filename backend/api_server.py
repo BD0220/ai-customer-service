@@ -3,6 +3,17 @@ FastAPI 后端服务（升级版）
 提供 RESTful API，支持多轮对话 session。
 """
 
+import os
+import sys
+
+# 目录结构：backend/（业务代码）+ frontend/（界面层）。直接跑这个文件或从仓库根
+# `uvicorn api_server:app` 启动时，两边都要在 sys.path 上，否则 `from db import ...`
+# 这种平铺导入会直接 ModuleNotFoundError。
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+for _p in (os.path.join(_ROOT, "backend"), os.path.join(_ROOT, "frontend")):
+    if os.path.isdir(_p) and _p not in sys.path:
+        sys.path.insert(0, _p)
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel

@@ -10,6 +10,20 @@
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED.svg)](https://www.docker.com/)
 
 
+## 目录结构
+
+```
+ai-customer-service/
+├── backend/            # 业务代码：api_server / customer_service_agent / db / rag_engine / tools / ticket_manager
+├── frontend/ui/        # 界面层：Gradio 组件树与样式（build.py / style.py / handlers_*.py）
+├── docs/               # 设计、测评与使用说明
+├── eval/               # 评测用例与脚本
+├── knowledge_base/     # 知识库原始文档（RAG 语料）
+├── data/               # 运行时数据库与日志（已 gitignore）
+├── start.bat           # 一键启动（自动建 venv、装依赖、开浏览器）
+└── Dockerfile / docker-compose.yml
+```
+
 ## 📖 项目简介
 
 本项目是一个面向企业客服团队的 **AI Agent 系统**。与传统的规则匹配客服不同，它基于大语言模型的 **Function Calling** 能力，让 AI 自主理解用户意图、决定调用哪个工具、执行多步推理，最终给出准确回答。遇到投诉、退款等复杂问题，自动创建工单转接人工。

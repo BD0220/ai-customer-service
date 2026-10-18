@@ -4,7 +4,8 @@ FROM python:3.11-slim
 WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app/backend:/app/frontend
 
 # 先复制依赖文件，利用 Docker 缓存层
 COPY requirements.txt .

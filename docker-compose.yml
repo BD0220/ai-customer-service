@@ -10,6 +10,7 @@ services:
       - .env
     environment:
       - CS_DB_PATH=/data/customer_service.db
+      - PYTHONPATH=/app/backend:/app/frontend
     volumes:
       # 数据库持久化到宿主机，容器重启不丢数据
       - cs-data:/data
